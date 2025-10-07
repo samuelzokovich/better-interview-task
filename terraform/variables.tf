@@ -21,3 +21,9 @@ variable "dns_prefix" {
   type        = string
   default     = "better-llm-akscluster-api"
 }
+
+variable "budget_email" {
+  description = "Email address for budget alerts"
+  type        = string
+  default     = "sobhan.21.samantaray@gmail.com"
+}
