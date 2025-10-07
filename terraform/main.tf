@@ -77,8 +77,7 @@ resource "azurerm_application_gateway" "waf" {
   }
   backend_address_pool {
     name  = "backend-pool"
-    # You will need to update this with your AKS ingress controller's IP or FQDN after deployment
-    # Example: ip_addresses = ["<INGRESS_CONTROLLER_IP>"]
+    ip_addresses = ""
   }
   backend_http_settings {
     name                  = "http-settings"
