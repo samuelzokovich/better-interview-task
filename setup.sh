@@ -13,4 +13,9 @@ echo "🌐 Waiting for public IP for WebUI..."
 kubectl wait --for=condition=ready pod -l app=open-webui --timeout=300s
 kubectl get service open-webui-service
 
+echo "🔗 Configuring Application Gateway backend pool..."
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.10.1/deploy/static/provider/cloud/deploy.yaml
+kubectl get pods -n ingress-nginx
+kubectl get svc -n ingress-nginx
+#Update the backend pool with the external IP from the ingress-nginx service
 echo "✅ Deployment complete! Find your public IP above."

@@ -11,15 +11,13 @@ resource "azurerm_kubernetes_cluster" "aks" {
   resource_group_name = azurerm_resource_group.rg.name
   dns_prefix          = var.dns_prefix
 
-  # Define the primary node pool
   default_node_pool {
     name       = "default"
     node_count = 1
-    # UPPING THE VM SIZE for the LLM
-    vm_size    = "Standard_D4s_v3" 
+    # Bumped up for LLM workloads
+    vm_size    = "Standard_D4s_v3"
   }
 
-  # Use a system-assigned managed identity for simplicity and security
   identity {
     type = "SystemAssigned"
   }
@@ -58,73 +56,93 @@ resource "azurerm_application_gateway" "waf" {
   name                = "appgw-waf"
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
+
   sku {
     name     = "WAF_v2"
     tier     = "WAF_v2"
     capacity = 1
   }
+
   gateway_ip_configuration {
     name      = "appgw-ip-config"
     subnet_id = azurerm_subnet.subnet.id
   }
+
   frontend_port {
     name = "frontend-port"
     port = 80
   }
+
   frontend_ip_configuration {
     name                 = "frontend-ip"
     public_ip_address_id = azurerm_public_ip.appgw_pip.id
   }
+
   backend_address_pool {
-    name  = "backend-pool"
-    # Hardcoded as of now!
-    ip_addresses = "74.179.227.66"
+    name         = "backend-pool"
+    ip_addresses = ["74.179.227.66"]
   }
+
   backend_http_settings {
     name                  = "http-settings"
     port                  = 80
     protocol              = "Http"
     cookie_based_affinity = "Disabled"
   }
+
   http_listener {
     name                           = "http-listener"
     frontend_ip_configuration_name = "frontend-ip"
     frontend_port_name             = "frontend-port"
     protocol                       = "Http"
   }
+
   request_routing_rule {
     name                       = "rule1"
     rule_type                  = "Basic"
     http_listener_name         = "http-listener"
     backend_address_pool_name  = "backend-pool"
     backend_http_settings_name = "http-settings"
+    priority                   = 100
   }
+
   waf_configuration {
-    enabled            = true
-    firewall_mode      = "Prevention"
-    rule_set_type      = "OWASP"
-    rule_set_version   = "3.2"
+    enabled          = true
+    firewall_mode    = "Prevention"
+    rule_set_type    = "OWASP"
+    rule_set_version = "3.2"
+  }
+
+  ssl_policy {
+    policy_type          = "Predefined"
+    policy_name          = "AppGwSslPolicy20170401S"
+    min_protocol_version = "TLSv1_2"
   }
 }
 
-# 6. Azure Budget with Email Alert
+
+# 6. Data source for subscription ID
+data "azurerm_client_config" "current" {}
+
+# 7. Azure Budget with Email Alert
 resource "azurerm_consumption_budget_subscription" "budget" {
-  name                = "llm-budget"
-  subscription_id     = data.azurerm_client_config.current.subscription_id
-  amount              = 3
-  time_grain          = "Monthly"
+  name            = "llm-budget"
+  subscription_id = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
+  amount          = 3
+  time_grain      = "Monthly"
+
   time_period {
-    start_date = formatdate("YYYY-MM-DD", timestamp())
-    end_date   = "2099-12-31"
+    # Start date as RFC3339 format
+    start_date = "2025-10-01T00:00:00Z"
+    end_date   = "2025-12-31T00:00:00Z"
   }
+
   notification {
     enabled        = true
+    operator       = "EqualTo"
     threshold      = 100
+    threshold_type = "Actual"
     contact_emails = [var.budget_email]
     contact_roles  = []
-    notification_type = "Actual"
   }
 }
-
-# 7. Data source for subscription ID
-data "azurerm_client_config" "current" {}
