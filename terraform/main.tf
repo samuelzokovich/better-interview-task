@@ -77,7 +77,8 @@ resource "azurerm_application_gateway" "waf" {
   }
   backend_address_pool {
     name  = "backend-pool"
-    ip_addresses = ""
+    # Hardcoded as of now!
+    ip_addresses = "74.179.227.66"
   }
   backend_http_settings {
     name                  = "http-settings"
