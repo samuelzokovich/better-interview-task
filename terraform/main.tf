@@ -146,11 +146,11 @@ resource "azurerm_application_gateway" "waf" {
 # 6. Data source for subscription ID
 data "azurerm_client_config" "current" {}
 
-# 7. Azure Budget with Email Alert
+# 7. Azure Budget with Email Alerts (Updated for realistic costs)
 resource "azurerm_consumption_budget_subscription" "budget" {
   name            = "llm-budget"
   subscription_id = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
-  amount          = 3
+  amount          = 500  # ₹500 (~$6 USD) more realistic for this setup
   time_grain      = "Monthly"
 
   time_period {
@@ -159,9 +159,30 @@ resource "azurerm_consumption_budget_subscription" "budget" {
     end_date   = "2025-12-31T00:00:00Z"
   }
 
+  # Alert at 50% of budget
   notification {
     enabled        = true
-    operator       = "EqualTo"
+    operator       = "GreaterThan"
+    threshold      = 50
+    threshold_type = "Actual"
+    contact_emails = [var.budget_email]
+    contact_roles  = []
+  }
+
+  # Alert at 80% of budget
+  notification {
+    enabled        = true
+    operator       = "GreaterThan"
+    threshold      = 80
+    threshold_type = "Actual"
+    contact_emails = [var.budget_email]
+    contact_roles  = []
+  }
+
+  # Alert at 100% of budget
+  notification {
+    enabled        = true
+    operator       = "GreaterThan"
     threshold      = 100
     threshold_type = "Actual"
     contact_emails = [var.budget_email]
