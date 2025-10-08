@@ -4,7 +4,7 @@ resource "azurerm_resource_group" "rg" {
   location = var.location
 }
 
-# 2. Create the AKS cluster
+# 2. Create the AKS cluster with AGIC addon
 resource "azurerm_kubernetes_cluster" "aks" {
   name                = var.cluster_name
   location            = azurerm_resource_group.rg.location
@@ -16,18 +16,31 @@ resource "azurerm_kubernetes_cluster" "aks" {
     node_count = 1
     # Bumped up for LLM workloads
     vm_size    = "Standard_D4s_v3"
+    vnet_subnet_id = azurerm_subnet.aks_subnet.id
   }
 
   identity {
     type = "SystemAssigned"
   }
 
+  ingress_application_gateway {
+    gateway_id = azurerm_application_gateway.waf.id
+  }
+
+  network_profile {
+    network_plugin = "azure"
+    service_cidr   = "10.1.0.0/16"
+    dns_service_ip = "10.1.0.10"
+  }
+
   tags = {
     environment = "dev"
   }
+
+  depends_on = [azurerm_application_gateway.waf]
 }
 
-# 3. Create a Virtual Network and Subnet for AKS and Application Gateway
+# 3. Create a Virtual Network and Subnets for AKS and Application Gateway
 resource "azurerm_virtual_network" "vnet" {
   name                = "${var.resource_group_name}-vnet"
   address_space       = ["10.0.0.0/16"]
@@ -35,11 +48,20 @@ resource "azurerm_virtual_network" "vnet" {
   resource_group_name = azurerm_resource_group.rg.name
 }
 
-resource "azurerm_subnet" "subnet" {
-  name                 = "default"
+# Subnet for Application Gateway
+resource "azurerm_subnet" "appgw_subnet" {
+  name                 = "appgw-subnet"
   resource_group_name  = azurerm_resource_group.rg.name
   virtual_network_name = azurerm_virtual_network.vnet.name
   address_prefixes     = ["10.0.1.0/24"]
+}
+
+# Subnet for AKS nodes
+resource "azurerm_subnet" "aks_subnet" {
+  name                 = "aks-subnet"
+  resource_group_name  = azurerm_resource_group.rg.name
+  virtual_network_name = azurerm_virtual_network.vnet.name
+  address_prefixes     = ["10.0.2.0/24"]
 }
 
 # 4. Public IP for Application Gateway
@@ -65,7 +87,7 @@ resource "azurerm_application_gateway" "waf" {
 
   gateway_ip_configuration {
     name      = "appgw-ip-config"
-    subnet_id = azurerm_subnet.subnet.id
+    subnet_id = azurerm_subnet.appgw_subnet.id
   }
 
   frontend_port {
@@ -78,31 +100,31 @@ resource "azurerm_application_gateway" "waf" {
     public_ip_address_id = azurerm_public_ip.appgw_pip.id
   }
 
+  # AGIC will manage backend pools dynamically
   backend_address_pool {
-    name         = "backend-pool"
-    ip_addresses = ["74.179.227.66"]
+    name = "default-backend-pool"
   }
 
   backend_http_settings {
-    name                  = "http-settings"
+    name                  = "default-http-settings"
     port                  = 80
     protocol              = "Http"
     cookie_based_affinity = "Disabled"
   }
 
   http_listener {
-    name                           = "http-listener"
+    name                           = "default-listener"
     frontend_ip_configuration_name = "frontend-ip"
     frontend_port_name             = "frontend-port"
     protocol                       = "Http"
   }
 
   request_routing_rule {
-    name                       = "rule1"
+    name                       = "default-rule"
     rule_type                  = "Basic"
-    http_listener_name         = "http-listener"
-    backend_address_pool_name  = "backend-pool"
-    backend_http_settings_name = "http-settings"
+    http_listener_name         = "default-listener"
+    backend_address_pool_name  = "default-backend-pool"
+    backend_http_settings_name = "default-http-settings"
     priority                   = 100
   }
 
