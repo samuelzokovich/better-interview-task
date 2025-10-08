@@ -66,9 +66,8 @@ spec:
           value: "http://ollama-service:11434"
 
 ---
-# 4. Open WebUI Service (Public)
-# This creates the public-facing Load Balancer.
-# Azure will provision a public IP address for this service.
+# 4. Open WebUI Service (Internal for AGIC)
+# AGIC will handle external routing via Application Gateway
 apiVersion: v1
 kind: Service
 metadata:
@@ -78,5 +77,5 @@ spec:
   selector:
     app: open-webui
   ports:
-  - port: 80 # The port you will access from the internet
+  - port: 8080 # The port AGIC will connect to
     targetPort: 8080 # The port the Open WebUI container is listening on
