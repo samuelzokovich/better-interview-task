@@ -1,6 +1,6 @@
 #!/bin/bash
 echo "🚀 Applying Kubernetes manifests..."
-kubectl apply -f deployment.yaml
+kubectl apply -f k8s/deploy.yaml
 
 echo "⏳ Waiting for Ollama pod to be ready..."
 kubectl wait --for=condition=ready pod -l app=ollama --timeout=300s
@@ -13,9 +13,8 @@ echo "🌐 Waiting for public IP for WebUI..."
 kubectl wait --for=condition=ready pod -l app=open-webui --timeout=300s
 kubectl get service open-webui-service
 
-echo "🔗 Configuring Application Gateway backend pool..."
-kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.10.1/deploy/static/provider/cloud/deploy.yaml
-kubectl get pods -n ingress-nginx
-kubectl get svc -n ingress-nginx
-#Update the backend pool with the external IP from the ingress-nginx service
+echo "🔗 Applying AGIC ingress configuration..."
+kubectl apply -f k8s/open-webui-ingress.yaml
+echo "🔍 Checking AGIC pod status..."
+kubectl get pods -n kube-system | grep ingress-appgw
 echo "✅ Deployment complete! Find your public IP above."
