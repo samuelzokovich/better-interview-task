@@ -4,12 +4,12 @@ metadata:
   name: open-webui-ingress
   namespace: default
   annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
+    kubernetes.io/ingress.class: azure/application-gateway
+    appgw.ingress.kubernetes.io/backend-protocol: "http"
+    appgw.ingress.kubernetes.io/request-timeout: "300"
 spec:
   rules:
-   # Hardcoded IP of Azure Application Gateway Public IP
-    - host: 172.174.52.183
-      http:
+    - http:
         paths:
           - path: /
             pathType: Prefix
